@@ -1,0 +1,249 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Secure Service Catalog: Private encrypted bucket using AES256 with logging.",
+    "Metadata": {
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": {
+                        "default": "S3 Bucket Configuration"
+                    },
+                    "Parameters": [
+                        "S3BucketName"
+                    ]
+                }
+            ]
+        }
+    },
+    "Parameters": {
+        "S3BucketName": {
+            "Description": "Name of the S3 bucket",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "S3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+                "AccessControl": "Private",
+                "BucketName": {
+                    "Ref": "S3BucketName"
+                },
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [
+                        {
+                            "ServerSideEncryptionByDefault": {
+                                "SSEAlgorithm": "AES256"
+                            }
+                        }
+                    ]
+                },
+                "LoggingConfiguration": {
+                    "DestinationBucketName": {
+                        "Fn::Join": [
+                        "-",
+                        [
+                            "aes-siem",
+                            {
+                            "Ref": "AWS::AccountId"
+                            },
+                            "log"
+                        ]
+                        ]
+                    },
+                    "LogFilePrefix": {
+                        "Fn::Join": [
+                        "",
+                        [
+                            "AWSLogs/",
+                            {
+                            "Ref": "AWS::AccountId"
+                            },
+                            "/s3accesslog/",
+                            {
+                            "Ref": "AWS::Region"
+                            },
+                            "/",
+                            {
+                            "Ref": "S3BucketName"
+                            },
+                            "/"
+                        ]
+                        ]
+                    }
+                },
+                "PublicAccessBlockConfiguration": {
+                    "BlockPublicAcls": true,
+                    "BlockPublicPolicy": true,
+                    "IgnorePublicAcls": true,
+                    "RestrictPublicBuckets": true
+                },
+                "VersioningConfiguration": {
+                    "Status": "Enabled"
+                },
+                "Tags": [
+                    {
+                        "Key": "ProductName",
+                        "Value": "SSC-S3-CloudFront-Bucket"
+                    }
+                ]
+            }
+        },
+        "CloudFrontOriginAccessId": {
+            "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+            "Properties": {
+                "CloudFrontOriginAccessIdentityConfig": {
+                    "Comment": "CloudFront OAI for S3 Bucket"
+                }
+            }
+        },
+        "BucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "Bucket": {
+                    "Ref": "S3Bucket"
+                },
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Sid": "DenyIncorrectEncryptionHeader",
+                            "Effect": "Deny",
+                            "Action": "s3:PutObject",
+                            "Principal": "*",
+                            "Resource": {
+                                "Fn::Sub": "arn:aws:s3:::${S3Bucket}/*"
+                            },
+                            "Condition": {
+                                "StringNotEquals": {
+                                    "s3:x-amz-server-side-encryption": "AES256"
+                                }
+                            }
+                        },
+                        {
+                            "Sid": "DenyUnEncryptedObjectUploads",
+                            "Effect": "Deny",
+                            "Action": "s3:PutObject",
+                            "Principal": "*",
+                            "Resource": {
+                                "Fn::Sub": "arn:aws:s3:::${S3Bucket}/*"
+                            },
+                            "Condition": {
+                                "Null": {
+                                    "s3:x-amz-server-side-encryption": "true"
+                                }
+                            }
+                        },
+                        {
+                            "Sid": "AllowCloudfrontOAI",
+                            "Effect": "Allow",
+                            "Action": "s3:GetObject",
+                            "Principal": {
+                                "AWS": {
+                                    "Fn::Sub": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessId}"
+                                }
+                            },
+                            "Resource": {
+                                "Fn::Sub": "arn:aws:s3:::${S3Bucket}/*"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "CloudFrontDistribution": {
+            "Type": "AWS::CloudFront::Distribution",
+            "Properties": {
+                "DistributionConfig": {
+                    "Origins": [
+                        {
+                            "DomainName": {
+                                "Fn::GetAtt": [
+                                    "S3Bucket",
+                                    "RegionalDomainName"
+                                ]
+                            },
+                            "Id": "S3OriginId",
+                            "S3OriginConfig": {
+                                "OriginAccessIdentity": {
+                                    "Fn::Sub": "origin-access-identity/cloudfront/${CloudFrontOriginAccessId}"
+                                }
+                            }
+                        }
+                    ],
+                    "Enabled": "True",
+                    "Comment": "Secured S3 bucket",
+                    "DefaultCacheBehavior": {
+                        "AllowedMethods": [
+                            "GET",
+                            "HEAD"
+                        ],
+                        "TargetOriginId": "S3OriginId",
+                        "ForwardedValues" : {
+                            "QueryString" : "false"
+                         },
+                        "ViewerProtocolPolicy": "redirect-to-https",
+                        "MinTTL" : "1"
+                    },
+                    "ViewerCertificate": {
+                        "CloudFrontDefaultCertificate": "True"
+                    },
+                    "Logging": {
+                        "Bucket" : {
+                            "Fn::Join": [
+                            "-",
+                            [
+                                "aes-siem",
+                                {
+                                "Ref": "AWS::AccountId"
+                                },
+                                "log.s3.amazonaws.com"
+                            ]
+                            ]
+                        },
+                        "IncludeCookies": "true",
+                        "Prefix" : {
+                            "Fn::Join": [
+                            "",
+                            [
+                                "AWSLogs/",
+                                {
+                                "Ref": "AWS::AccountId"
+                                },
+                                "/cloudfront/global/",
+                                {
+                                "Ref": "S3BucketName"
+                                },
+                                "/"
+                            ]
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "BucketName": {
+            "Value": {
+                "Ref": "S3Bucket"
+            }
+        },
+        "BucketARN": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "S3Bucket",
+                    "Arn"
+                ]
+            }
+        },
+        "BucketDomainName": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "S3Bucket",
+                    "DomainName"
+                ]
+            }
+        }
+    }
+}

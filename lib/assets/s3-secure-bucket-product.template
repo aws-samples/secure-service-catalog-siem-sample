@@ -1,0 +1,149 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Secure Service Catalog: Private encrypted bucket using AES256 with logging.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "S3 Bucket Configuration"
+          },
+          "Parameters": [
+            "S3BucketName"
+          ]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "S3BucketName": {
+      "Description": "Name of the S3 bucket",
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "S3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "AccessControl": "Private",
+        "BucketName": {
+          "Ref": "S3BucketName"
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "LoggingConfiguration": {
+          "DestinationBucketName": {
+            "Fn::Join": [
+              "-",
+              [
+                "aes-siem",
+                {
+                  "Ref": "AWS::AccountId"
+                },
+                "log"
+              ]
+            ]
+          },
+          "LogFilePrefix": {
+            "Fn::Join": [
+              "",
+              [
+                "AWSLogs/",
+                {
+                  "Ref": "AWS::AccountId"
+                },
+                "/s3accesslog/",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "/",
+                {
+                  "Ref": "S3BucketName"
+                },
+                "/"
+              ]
+            ]
+          }
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "Tags": [
+          {
+            "Key": "ProductName",
+            "Value": "SSC-S3-Bucket"
+          }
+        ]
+      }
+    },
+    "BucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "S3Bucket"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Sid": "DenyIncorrectEncryptionHeader",
+              "Effect": "Deny",
+              "Action": "s3:PutObject",
+              "Principal": "*",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${S3Bucket}/*"
+              },
+              "Condition": {
+                "StringNotEquals": {
+                  "s3:x-amz-server-side-encryption": "AES256"
+                }
+              }
+            },
+            {
+              "Sid": "DenyUnEncryptedObjectUploads",
+              "Effect": "Deny",
+              "Action": "s3:PutObject",
+              "Principal": "*",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${S3Bucket}/*"
+              },
+              "Condition": {
+                "Null": {
+                  "s3:x-amz-server-side-encryption": "true"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "BucketName": {
+      "Value": {
+        "Ref": "S3Bucket"
+      }
+    },
+    "BucketARN": {
+      "Value": {
+        "Fn::GetAtt": [
+          "S3Bucket",
+          "Arn"
+        ]
+      }
+    }
+  }
+}
