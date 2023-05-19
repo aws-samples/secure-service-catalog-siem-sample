@@ -11,10 +11,6 @@
     "test": "jest",
     "cdk": "cdk"
   },
-  "repository": {
-    "type": "git",
-    "url": "git@ssh.gitlab.aws.dev:maschek/secure-service-catalog.git"
-  },
   "keywords": [
     "AWS",
     "ServiceCatalog",
@@ -24,26 +20,26 @@
   "author": "maschek@",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@aws-cdk/assertions": "1.132.0",
+    "@aws-cdk/assertions": "1.201.0",
     "@types/jest": "^26.0.10",
     "@types/node": "^10.17.27",
     "@types/source-map-support": "^0.5.4",
-    "aws-cdk": "1.132.0",
+    "aws-cdk": "1.201.0",
     "jest": "^26.4.2",
     "ts-jest": "^26.2.0",
     "ts-node": "^9.0.0",
     "typescript": "~3.9.7"
   },
   "dependencies": {
-    "@aws-cdk/aws-codecommit": "^1.132.0",
-    "@aws-cdk/aws-kms": "^1.132.0",
-    "@aws-cdk/aws-s3": "^1.132.0",
-    "@aws-cdk/aws-s3-deployment": "^1.132.0",
-    "@aws-cdk/aws-s3-notifications": "^1.132.0",
-    "@aws-cdk/aws-servicecatalog": "^1.132.0",
-    "@aws-cdk/aws-sns": "^1.132.0",
-    "@aws-cdk/core": "1.132.0",
-    "@aws-cdk/pipelines": "^1.132.0",
+    "@aws-cdk/aws-codecommit": "^1.201.0",
+    "@aws-cdk/aws-kms": "^1.201.0",
+    "@aws-cdk/aws-s3": "^1.201.0",
+    "@aws-cdk/aws-s3-deployment": "^1.201.0",
+    "@aws-cdk/aws-s3-notifications": "^1.201.0",
+    "@aws-cdk/aws-servicecatalog": "^1.201.0",
+    "@aws-cdk/aws-sns": "^1.201.0",
+    "@aws-cdk/core": "1.201.0",
+    "@aws-cdk/pipelines": "^1.201.0",
     "dotenv": "^10.0.0",
     "source-map-support": "^0.5.16"
   }
